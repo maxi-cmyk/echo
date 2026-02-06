@@ -1,13 +1,25 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazily initialize OpenAI to prevent build-time errors when API keys are missing
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+  : null;
 
 export async function POST(req: Request) {
   try {
     const { fileUrl, mediaType } = await req.json();
+
+    if (!openai) {
+      console.warn("OpenAI API key missing, skipping analysis");
+      return NextResponse.json({
+        summary: "AI Analysis unavailable (Missing API Key)",
+        people: "Unknown",
+        date: "Unknown",
+      });
+    }
 
     if (!fileUrl) {
       return NextResponse.json({ error: "Missing fileUrl" }, { status: 400 });
