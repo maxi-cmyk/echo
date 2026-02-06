@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SignOutButton } from "@clerk/nextjs";
+import { SignOutButton, useUser } from "@clerk/nextjs";
 
 const DEFAULT_PIN = "1234";
 const PIN_STORAGE_KEY = "echo_settings_pin";
@@ -10,7 +10,7 @@ const ALGORITHM_SETTINGS_KEY = "echo_algorithm_settings";
 
 type SettingsView = "menu" | "media" | "algorithm" | "voice";
 
-import { supabase } from "../../../lib/supabase";
+import { useSupabase } from "../../../hooks/useSupabase";
 
 interface QueueItem {
   id: string;
@@ -31,6 +31,7 @@ interface VoiceProfile {
 }
 
 export default function SettingsPage() {
+  const supabase = useSupabase();
   const router = useRouter();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -38,6 +39,44 @@ export default function SettingsPage() {
   const [currentView, setCurrentView] = useState<SettingsView>("menu");
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { user } = useUser();
+  const [patientId, setPatientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const getPatient = async () => {
+      try {
+        let { data } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("clerk_id", user.id)
+          .single();
+
+        if (!data) {
+          const { data: newPatient, error: createError } = await supabase
+            .from("patients")
+            .insert({
+              clerk_id: user.id,
+              display_name:
+                user.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+                "Patient",
+              pin_hash: "1234",
+            })
+            .select("id")
+            .single();
+          if (newPatient) data = newPatient;
+          if (createError)
+            console.error("Failed to create patient", createError);
+        }
+
+        if (data) setPatientId(data.id);
+      } catch (e) {
+        console.error("Patient fetch failed", e);
+      }
+    };
+    getPatient();
+  }, [user, supabase]);
 
   // Add Detail modal state
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -488,9 +527,12 @@ export default function SettingsPage() {
       }
 
       // 4. Insert into Database
+      if (!patientId) throw new Error("Patient ID not found. Please wait...");
+
       const { data: assetData, error: assetError } = await supabase
         .from("media_assets")
         .insert({
+          patient_id: patientId,
           storage_path: fileName,
           public_url: publicUrl,
           type: isImage ? "photo" : isVideo ? "video" : "audio",
@@ -505,6 +547,7 @@ export default function SettingsPage() {
       const { data: memoryData, error: memoryError } = await supabase
         .from("memories")
         .insert({
+          patient_id: patientId,
           media_asset_id: assetData.id,
           status: "needs_review",
           script: analysis.summary,

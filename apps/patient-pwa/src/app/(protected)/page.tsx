@@ -3,23 +3,60 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
-import { supabase } from "../../lib/supabase";
+import { useSupabase } from "../../hooks/useSupabase";
+import { videoCache } from "../../services/videoCache";
 
 // Inline SVG Icons (avoiding lucide-react dependency)
-const HeartIcon = ({ filled, className }: { filled?: boolean; className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={filled ? 0 : 2.5} strokeLinecap="round" strokeLinejoin="round">
+const HeartIcon = ({
+  filled,
+  className,
+}: {
+  filled?: boolean;
+  className?: string;
+}) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill={filled ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth={filled ? 0 : 2.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
   </svg>
 );
 
-const StarIcon = ({ filled, className }: { filled?: boolean; className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={filled ? 0 : 2.5} strokeLinecap="round" strokeLinejoin="round">
+const StarIcon = ({
+  filled,
+  className,
+}: {
+  filled?: boolean;
+  className?: string;
+}) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill={filled ? "currentColor" : "none"}
+    stroke="currentColor"
+    strokeWidth={filled ? 0 : 2.5}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
 
 const SettingsIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
@@ -41,6 +78,7 @@ interface Memory {
 }
 
 export default function PatientView() {
+  const supabase = useSupabase();
   const { isLoaded, isSignedIn } = useUser();
 
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -50,7 +88,9 @@ export default function PatientView() {
 
   // Interaction State
   const [likedMemories, setLikedMemories] = useState<Set<string>>(new Set());
-  const [recalledMemories, setRecalledMemories] = useState<Set<string>>(new Set());
+  const [recalledMemories, setRecalledMemories] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Narration State
   const [narrationScript, setNarrationScript] = useState<string | null>(null);
@@ -59,7 +99,9 @@ export default function PatientView() {
 
   const currentMemory = memories[currentIndex];
   const isLiked = currentMemory ? likedMemories.has(currentMemory.id) : false;
-  const isRecalled = currentMemory ? recalledMemories.has(currentMemory.id) : false;
+  const isRecalled = currentMemory
+    ? recalledMemories.has(currentMemory.id)
+    : false;
 
   // Fetch Memories
   useEffect(() => {
@@ -84,7 +126,11 @@ export default function PatientView() {
 
         setMemories(filtered);
       } catch (err) {
-        console.error("Fetch memories failed", err);
+        console.error(
+          "Fetch memories failed details:",
+          JSON.stringify(err, Object.getOwnPropertyNames(err), 2),
+        );
+        console.error("Raw error:", err);
       } finally {
         setIsLoading(false);
       }
@@ -99,7 +145,11 @@ export default function PatientView() {
     const scrollTop = containerRef.current.scrollTop;
     const height = containerRef.current.clientHeight;
     const newIndex = Math.round(scrollTop / height);
-    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < memories.length) {
+    if (
+      newIndex !== currentIndex &&
+      newIndex >= 0 &&
+      newIndex < memories.length
+    ) {
       setCurrentIndex(newIndex);
     }
   }, [currentIndex, memories.length]);
@@ -282,8 +332,9 @@ export default function PatientView() {
               <img
                 src={memory.media_assets.public_url}
                 alt="Memory"
-                className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[12000ms] ease-linear ${index === currentIndex ? "scale-110" : "scale-100"
-                  }`}
+                className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[12000ms] ease-linear ${
+                  index === currentIndex ? "scale-110" : "scale-100"
+                }`}
                 draggable={false}
               />
             ) : (
@@ -320,8 +371,9 @@ export default function PatientView() {
           className="flex flex-col items-center gap-2 active:scale-90 transition-transform"
         >
           <div
-            className={`w-[64px] h-[64px] rounded-full flex items-center justify-center ${isLiked ? "bg-red-500/20 animate-pulse-once" : "bg-black/30"
-              } backdrop-blur-sm border border-white/20 transition-all`}
+            className={`w-[64px] h-[64px] rounded-full flex items-center justify-center ${
+              isLiked ? "bg-red-500/20 animate-pulse-once" : "bg-black/30"
+            } backdrop-blur-sm border border-white/20 transition-all`}
           >
             <HeartIcon
               filled={isLiked}
@@ -339,8 +391,9 @@ export default function PatientView() {
           className="flex flex-col items-center gap-2 active:scale-90 transition-transform"
         >
           <div
-            className={`w-[64px] h-[64px] rounded-full flex items-center justify-center ${isRecalled ? "bg-amber-400/20 animate-pulse-once" : "bg-black/30"
-              } backdrop-blur-sm border border-white/20 transition-all`}
+            className={`w-[64px] h-[64px] rounded-full flex items-center justify-center ${
+              isRecalled ? "bg-amber-400/20 animate-pulse-once" : "bg-black/30"
+            } backdrop-blur-sm border border-white/20 transition-all`}
           >
             <StarIcon
               filled={isRecalled}
@@ -415,9 +468,15 @@ export default function PatientView() {
           animation: fade-in 0.5s ease-out;
         }
         @keyframes pulse-once {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.15); }
-          100% { transform: scale(1); }
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.15);
+          }
+          100% {
+            transform: scale(1);
+          }
         }
         .animate-pulse-once {
           animation: pulse-once 0.3s ease-out;
