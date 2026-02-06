@@ -13,14 +13,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing imageUrl" }, { status: 400 });
     }
 
-    // SIMULATION: In a real scenario, this would call OpenAI's Sora 2 API
+    
     /*
     const video = await openai.videos.create({
       model: "sora-2", 
       prompt: "A subtle, 5-second high-fidelity animation of the provided photo. Apply a gentle 'breathing' effect to the subject with a soft, warm morning light enhancement. The subject performs a single, slow, recognizable action like a slight head tilt or a warm smile. Ensure 24fps for cinematic smoothness. Avoid rapid camera movement, flashes, or complex transitions to maintain cognitive comfort. High contrast, 21:1 ratio.",
       image: imageUrl,
-      duration: 5,
-      fps: 24,
+      duration: 3,
+      fps: 12,
       size: "720p", // Optimized for 2-second load
       response_format: "mp4"
     });
