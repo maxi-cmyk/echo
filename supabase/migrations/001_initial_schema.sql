@@ -91,8 +91,7 @@ create table if not exists patients (
 create table if not exists patient_settings (
   patient_id uuid primary key references patients(id) on delete cascade,
   fixation_cooldown_hours int default 24,
-  novelty_weight text default 'medium' check (novelty_weight in ('low', 'medium', 'high')),
-  tap_sensitivity text default 'medium' check (tap_sensitivity in ('low', 'medium', 'high')),
+  novelty_weight int default 50 check (novelty_weight between 0 and 100),
   sundowning_time time default '18:00',
   created_at timestamptz default now(),
   updated_at timestamptz default now()

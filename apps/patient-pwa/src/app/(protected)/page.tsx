@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { supabase } from "../lib/supabase";
-import { videoCache } from "../services/videoCache";
+import { supabase } from "../../lib/supabase";
+import { videoCache } from "../../services/videoCache";
 
 interface Memory {
   id: string;
@@ -21,6 +22,8 @@ interface Memory {
 }
 
 export default function PatientView() {
+  const { isLoaded, isSignedIn, user } = useUser();
+
   const [memories, setMemories] = useState<Memory[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,48 +49,43 @@ export default function PatientView() {
   const [narrationAudio, setNarrationAudio] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 1. Fetch Patient ID
   useEffect(() => {
+    if (!isSignedIn || !user) return;
+
     const getPatient = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          let { data } = await supabase
+        let { data } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("clerk_id", user.id)
+          .single();
+
+        if (!data) {
+          const { data: newPatient } = await supabase
             .from("patients")
+            .insert({
+              clerk_id: user.id,
+              display_name:
+                user.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+                "Patient",
+              pin_hash: "1234",
+            })
             .select("id")
-            .eq("clerk_id", user.id)
             .single();
-
-          if (!data) {
-            const { data: newPatient } = await supabase
-              .from("patients")
-              .insert({
-                clerk_id: user.id,
-                display_name: user.email?.split("@")[0] || "Patient",
-                pin_hash: "1234",
-              })
-              .select("id")
-              .single();
-            if (newPatient) data = newPatient;
-          }
-
-          if (data) setPatientId(data.id);
-          else setIsLoading(false);
-        } else {
-          setIsLoading(false);
+          if (newPatient) data = newPatient;
         }
+
+        if (data) setPatientId(data.id);
       } catch (e) {
         console.error("Auth check failed", e);
-        setIsLoading(false);
       }
     };
     getPatient();
-  }, []);
+  }, [isSignedIn, user]);
 
-  // 2. Fetch Memories (run immediately, don't wait for patientId)
   useEffect(() => {
+    if (!isSignedIn) return;
+
     const fetchMemories = async () => {
       try {
         const { data, error } = await supabase
@@ -113,9 +111,8 @@ export default function PatientView() {
     };
 
     fetchMemories();
-  }, []);
+  }, [isSignedIn]);
 
-  // 2a. Buffered Pre-fetch (Sora 2 Videos)
   useEffect(() => {
     if (memories.length === 0) return;
 
@@ -170,7 +167,6 @@ export default function PatientView() {
     ? recalledMemories.has(currentMemory.id)
     : false;
 
-  // 3. Narration Logic
   useEffect(() => {
     setNarrationScript(null);
     setNarrationAudio(null);
@@ -252,7 +248,15 @@ export default function PatientView() {
     }
   }, [narrationAudio]);
 
-  // 4. Interactions
+  // Loading state
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center text-white">
+        Loading...
+      </div>
+    );
+  }
+
   const toggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentMemory || !patientId) return;
@@ -309,7 +313,6 @@ export default function PatientView() {
     });
   };
 
-  // 5. Navigation & Instant Playback
   const nextMemory = () => {
     setGeneratedVideo(null);
     if (!memories.length) return;
@@ -403,7 +406,6 @@ export default function PatientView() {
     }
   };
 
-  // UI
   if (isLoading)
     return (
       <div className="flex h-screen items-center justify-center text-white">

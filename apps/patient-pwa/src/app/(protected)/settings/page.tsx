@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { SignOutButton } from "@clerk/nextjs";
 
 const DEFAULT_PIN = "1234";
 const PIN_STORAGE_KEY = "echo_settings_pin";
@@ -9,7 +10,7 @@ const ALGORITHM_SETTINGS_KEY = "echo_algorithm_settings";
 
 type SettingsView = "menu" | "media" | "algorithm" | "voice";
 
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 interface QueueItem {
   id: string;
@@ -61,7 +62,9 @@ export default function SettingsPage() {
   const [newVoiceName, setNewVoiceName] = useState("");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(
+    null,
+  );
 
   const recordingInterval = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -179,7 +182,10 @@ export default function SettingsPage() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
@@ -201,7 +207,9 @@ export default function SettingsPage() {
       id: tempId,
       name: newVoiceName.trim(),
       status: "processing",
-      samples: [{ filename: "Recording", date: new Date().toLocaleDateString() }],
+      samples: [
+        { filename: "Recording", date: new Date().toLocaleDateString() },
+      ],
     };
     setVoices((prev) => [...prev, newVoice]);
 
@@ -224,19 +232,17 @@ export default function SettingsPage() {
       // Update with real voice ID
       setVoices((prev) =>
         prev.map((v) =>
-          v.id === tempId
-            ? { ...v, id: data.voice_id, status: "ready" }
-            : v
-        )
+          v.id === tempId ? { ...v, id: data.voice_id, status: "ready" } : v,
+        ),
       );
       setActiveVoice(data.voice_id);
     } catch (error) {
       console.error("Voice clone failed:", error);
-      alert(`Voice cloning failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `Voice cloning failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
       setVoices((prev) =>
-        prev.map((v) =>
-          v.id === tempId ? { ...v, status: "failed" } : v
-        )
+        prev.map((v) => (v.id === tempId ? { ...v, status: "failed" } : v)),
       );
     } finally {
       setIsProcessing(false);
@@ -354,7 +360,12 @@ export default function SettingsPage() {
     setQueueItems((prev) =>
       prev.map((item) =>
         item.id === editingItemId
-          ? { ...item, description: editDescription, date: editDate, people: editLocation }
+          ? {
+              ...item,
+              description: editDescription,
+              date: editDate,
+              people: editLocation,
+            }
           : item,
       ),
     );
@@ -404,16 +415,28 @@ export default function SettingsPage() {
     if (!file) return;
 
     // Validate file type - expanded support
-    const validImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    const validImageTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
     const validVideoTypes = ["video/mp4", "video/webm", "video/quicktime"];
-    const validAudioTypes = ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-wav"];
+    const validAudioTypes = [
+      "audio/mpeg",
+      "audio/wav",
+      "audio/mp3",
+      "audio/x-wav",
+    ];
 
     const isImage = validImageTypes.includes(file.type);
     const isVideo = validVideoTypes.includes(file.type);
     const isAudio = validAudioTypes.includes(file.type);
 
     if (!isImage && !isVideo && !isAudio) {
-      alert("Unsupported file format. Please upload JPG, PNG, MP4, MOV, MP3, or WAV.");
+      alert(
+        "Unsupported file format. Please upload JPG, PNG, MP4, MOV, MP3, or WAV.",
+      );
       return;
     }
 
@@ -496,18 +519,22 @@ export default function SettingsPage() {
         prev.map((item) =>
           item.id === tempId
             ? {
-              ...item,
-              id: memoryData.id,
-              status: "needs_review",
-              description:
-                analysis.summary ||
-                (isVideo ? "Video uploaded" : isAudio ? "Audio uploaded" : "No description"),
-              people: analysis.people,
-              date: analysis.date,
-              url: publicUrl,
-            }
-            : item
-        )
+                ...item,
+                id: memoryData.id,
+                status: "needs_review",
+                description:
+                  analysis.summary ||
+                  (isVideo
+                    ? "Video uploaded"
+                    : isAudio
+                      ? "Audio uploaded"
+                      : "No description"),
+                people: analysis.people,
+                date: analysis.date,
+                url: publicUrl,
+              }
+            : item,
+        ),
       );
     } catch (error) {
       console.error(error);
@@ -515,12 +542,12 @@ export default function SettingsPage() {
         prev.map((item) =>
           item.id === tempId
             ? {
-              ...item,
-              status: "failed",
-              description: "Failed to process file.",
-            }
-            : item
-        )
+                ...item,
+                status: "failed",
+                description: "Failed to process file.",
+              }
+            : item,
+        ),
       );
     }
   };
@@ -614,6 +641,16 @@ export default function SettingsPage() {
               <h3>Neural Proxy</h3>
               <p>Configure voice enrollment and selection</p>
             </button>
+
+            <SignOutButton>
+              <button
+                className="menu-card"
+                style={{ border: "1px solid rgba(255,100,100,0.2)" }}
+              >
+                <h3 style={{ color: "#fca5a5" }}>Sign Out</h3>
+                <p style={{ color: "#fca5a5" }}>Sign out of the application</p>
+              </button>
+            </SignOutButton>
           </div>
         </div>
       </div>
@@ -636,7 +673,6 @@ export default function SettingsPage() {
           </div>
 
           <div className="modal-content">
-
             <div
               className="upload-zone"
               onClick={() => fileInputRef.current?.click()}
@@ -753,7 +789,9 @@ export default function SettingsPage() {
                 Add details that the narrator will read aloud for this memory.
               </p>
 
-              <label className="block text-sm text-text-muted mb-1">Description</label>
+              <label className="block text-sm text-text-muted mb-1">
+                Description
+              </label>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
@@ -763,7 +801,9 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                  <label className="block text-sm text-text-muted mb-1">Date</label>
+                  <label className="block text-sm text-text-muted mb-1">
+                    Date
+                  </label>
                   <input
                     type="date"
                     value={editDate}
@@ -772,7 +812,9 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-text-muted mb-1">Location</label>
+                  <label className="block text-sm text-text-muted mb-1">
+                    Location
+                  </label>
                   <input
                     type="text"
                     value={editLocation}
@@ -898,7 +940,14 @@ export default function SettingsPage() {
             </div>
 
             {saveMessage && (
-              <div className="save-message" style={{ color: "var(--accent)", textAlign: "center", marginBottom: "0.5rem" }}>
+              <div
+                className="save-message"
+                style={{
+                  color: "var(--accent)",
+                  textAlign: "center",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 ✓ {saveMessage}
               </div>
             )}
@@ -955,35 +1004,56 @@ export default function SettingsPage() {
 
             {/* Voice List with Preview/Delete */}
             <div className="voice-list" style={{ marginTop: "1rem" }}>
-              {voices.filter(v => v.id !== "default").map((voice) => (
-                <div key={voice.id} className={`voice-item ${activeVoice === voice.id ? "active" : ""}`}>
-                  <div style={{ flex: 1 }}>
-                    <span className="voice-name">{voice.name}</span>
-                    <span className={`voice-status ${voice.status}`} style={{ marginLeft: "0.5rem" }}>
-                      {voice.status === "ready" ? "✓ Ready" : voice.status === "processing" ? "⏳ Processing..." : "✗ Failed"}
-                    </span>
-                  </div>
-                  {voice.status === "ready" && (
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        className="action-btn edit"
-                        onClick={() => previewVoice(voice.id)}
-                        disabled={previewingVoiceId === voice.id}
-                        style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem" }}
+              {voices
+                .filter((v) => v.id !== "default")
+                .map((voice) => (
+                  <div
+                    key={voice.id}
+                    className={`voice-item ${activeVoice === voice.id ? "active" : ""}`}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <span className="voice-name">{voice.name}</span>
+                      <span
+                        className={`voice-status ${voice.status}`}
+                        style={{ marginLeft: "0.5rem" }}
                       >
-                        {previewingVoiceId === voice.id ? "Playing..." : "▶ Preview"}
-                      </button>
-                      <button
-                        className="action-btn edit"
-                        onClick={() => deleteVoice(voice.id)}
-                        style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem", color: "#e57373" }}
-                      >
-                        ✗ Delete
-                      </button>
+                        {voice.status === "ready"
+                          ? "✓ Ready"
+                          : voice.status === "processing"
+                            ? "⏳ Processing..."
+                            : "✗ Failed"}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {voice.status === "ready" && (
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          className="action-btn edit"
+                          onClick={() => previewVoice(voice.id)}
+                          disabled={previewingVoiceId === voice.id}
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.375rem 0.75rem",
+                          }}
+                        >
+                          {previewingVoiceId === voice.id
+                            ? "Playing..."
+                            : "▶ Preview"}
+                        </button>
+                        <button
+                          className="action-btn edit"
+                          onClick={() => deleteVoice(voice.id)}
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.375rem 0.75rem",
+                            color: "#e57373",
+                          }}
+                        >
+                          ✗ Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
 
             <hr
@@ -995,7 +1065,8 @@ export default function SettingsPage() {
               Add New Voice
             </h3>
             <p className="setting-hint">
-              Record exactly 1 minute of clear speech. Recording will auto-stop at 1:00.
+              Record exactly 1 minute of clear speech. Recording will auto-stop
+              at 1:00.
             </p>
 
             <div className="recording-section">
