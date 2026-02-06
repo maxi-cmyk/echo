@@ -6,7 +6,6 @@ interface AdaptationState {
   missedTaps: number;
   isVoiceMode: boolean;
   isSundowningMode: boolean;
-  ambientLight: "bright" | "dim" | "dark";
 }
 
 interface AdaptationEngineProps {
@@ -30,7 +29,6 @@ export function useAdaptationEngine({
     missedTaps: 0,
     isVoiceMode: false,
     isSundowningMode: false,
-    ambientLight: "bright",
   });
 
   const tapAreaRef = useRef<HTMLDivElement>(null);
@@ -58,38 +56,6 @@ export function useAdaptationEngine({
 
     return () => clearInterval(interval);
   }, [sundowningTime, state.isSundowningMode, onModeChange]);
-
-  // Ambient light detection
-  useEffect(() => {
-    if ("AmbientLightSensor" in window) {
-      try {
-        const sensor = new (
-          window as unknown as {
-            AmbientLightSensor: new () => {
-              illuminance: number;
-              onreading: () => void;
-              start: () => void;
-            };
-          }
-        ).AmbientLightSensor();
-        sensor.onreading = () => {
-          const lux = sensor.illuminance;
-          let ambientLight: "bright" | "dim" | "dark" = "bright";
-          if (lux < 10) ambientLight = "dark";
-          else if (lux < 50) ambientLight = "dim";
-
-          if (ambientLight !== state.ambientLight) {
-            const newState = { ...state, ambientLight };
-            setState(newState);
-            onModeChange(newState);
-          }
-        };
-        sensor.start();
-      } catch {
-        console.log("Ambient light sensor not available");
-      }
-    }
-  }, []);
 
   // Track missed taps
   const registerTap = useCallback(
@@ -130,10 +96,18 @@ export function useAdaptationEngine({
     onModeChange(newState);
   }, [state, onModeChange]);
 
+  // Activate voice mode
+  const activateVoiceMode = useCallback(() => {
+    const newState = { ...state, isVoiceMode: true };
+    setState(newState);
+    onModeChange(newState);
+  }, [state, onModeChange]);
+
   return {
     state,
     registerTap,
     resetVoiceMode,
+    activateVoiceMode,
     tapAreaRef,
   };
 }

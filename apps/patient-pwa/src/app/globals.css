@@ -20,6 +20,33 @@
   --text-muted: #8aa88a;
 }
 
+/* Sundowning Mode - Warm Amber Theme */
+.sundowning-mode {
+  --bg-primary: #1a1008;
+  --bg-card: #2a1a10;
+  --bg-overlay: rgba(26, 16, 8, 0.9);
+
+  --border: #5a4030;
+  --border-focus: #d4a574;
+
+  --accent: #f5b041;
+  --accent-muted: #b8860b;
+
+  --text-primary: #ffebd4;
+  --text-muted: #c9a88a;
+}
+
+/* Apply warm filter when sundowning */
+.sundowning-mode img,
+.sundowning-mode video {
+  filter: sepia(15%) saturate(90%) brightness(0.95);
+}
+
+/* Reduce glare in sundowning mode */
+.sundowning-mode .text-white {
+  color: #ffebd4 !important;
+}
+
 @theme inline {
   --color-bg-primary: var(--bg-primary);
   --color-bg-card: var(--bg-card);
@@ -83,7 +110,6 @@ body {
 
 /* Loading spinner */
 @keyframes pulse {
-
   0%,
   100% {
     opacity: 1;
@@ -389,7 +415,6 @@ body {
 }
 
 @keyframes shake {
-
   0%,
   100% {
     transform: translateX(0);
@@ -868,7 +893,6 @@ body {
 }
 
 @keyframes pulse-recording {
-
   0%,
   100% {
     box-shadow: 0 0 0 8px rgba(124, 184, 124, 0.3);
@@ -1171,7 +1195,12 @@ body {
   left: 0;
   right: 0;
   height: 200px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.3) 50%, transparent 100%);
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.3) 50%,
+    transparent 100%
+  );
   pointer-events: none;
   z-index: 5;
 }
@@ -1181,7 +1210,7 @@ body {
   position: absolute;
   bottom: 60px;
   left: 16px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 0.875rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
@@ -1194,7 +1223,7 @@ body {
   position: absolute;
   bottom: 60px;
   right: 16px;
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 0.875rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.85);
@@ -1215,7 +1244,7 @@ body {
 }
 
 .caption-text {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 1.125rem;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.95);

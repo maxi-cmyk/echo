@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { useSupabase } from "../../hooks/useSupabase";
-import { videoCache } from "../../services/videoCache";
+import useAdaptationEngine from "../../hooks/useAdaptationEngine";
 
 // Inline SVG Icons (avoiding lucide-react dependency)
 const HeartIcon = ({
@@ -96,6 +96,114 @@ export default function PatientView() {
   const [narrationScript, setNarrationScript] = useState<string | null>(null);
   const [narrationAudio, setNarrationAudio] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isListening, setIsListening] = useState(false);
+
+  const {
+    state: adaptationState,
+    registerTap,
+    resetVoiceMode,
+    activateVoiceMode,
+  } = useAdaptationEngine({
+    sundowningTime: "18:00",
+    tapSensitivity: "medium",
+    onModeChange: (s) => console.log("Mode:", s),
+  });
+
+  // TTS for Voice Mode
+  useEffect(() => {
+    if (adaptationState.isVoiceMode && !isListening) {
+      const msg = new SpeechSynthesisUtterance("Tap the microphone to speak");
+      window.speechSynthesis.speak(msg);
+    }
+  }, [adaptationState.isVoiceMode]);
+
+  // Speech Recognition
+  useEffect(() => {
+    if (!isListening) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionAPI =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      console.error("Speech recognition not supported");
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript.toLowerCase();
+      console.log("Heard:", transcript);
+
+      // Parse commands
+      if (transcript.includes("next")) {
+        const nextIndex = Math.min(currentIndex + 1, memories.length - 1);
+        setCurrentIndex(nextIndex);
+        // Instantly scroll to the next memory
+        if (containerRef.current) {
+          containerRef.current.scrollTo({
+            top: nextIndex * window.innerHeight,
+            behavior: "instant",
+          });
+        }
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Next"));
+      } else if (transcript.includes("like")) {
+        const mem = memories[currentIndex];
+        if (mem) {
+          setLikedMemories((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(mem.id)) newSet.delete(mem.id);
+            else newSet.add(mem.id);
+            return newSet;
+          });
+        }
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Liked"));
+      } else if (transcript.includes("recall")) {
+        const mem = memories[currentIndex];
+        if (mem) {
+          setRecalledMemories((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(mem.id)) newSet.delete(mem.id);
+            else newSet.add(mem.id);
+            return newSet;
+          });
+        }
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Recalled"));
+      } else {
+        window.speechSynthesis.speak(
+          new SpeechSynthesisUtterance(
+            "I didn't understand. Try saying next, like, or recall.",
+          ),
+        );
+      }
+
+      setIsListening(false);
+      resetVoiceMode();
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
+      console.error("Speech error:", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+
+    return () => {
+      recognition.abort();
+    };
+  }, [isListening, memories, currentIndex, resetVoiceMode]);
 
   const currentMemory = memories[currentIndex];
   const isLiked = currentMemory ? likedMemories.has(currentMemory.id) : false;
@@ -306,7 +414,11 @@ export default function PatientView() {
         </p>
         <Link
           href="/settings"
-          className="bg-[#95B48B] text-black px-8 py-4 rounded-full text-xl font-bold"
+          onClick={(e) => {
+            e.stopPropagation();
+            registerTap(true);
+          }}
+          className={`absolute top-4 right-4 z-40 p-4 bg-black/40 backdrop-blur-md rounded-full text-white/80 transition-all ${adaptationState.isVoiceMode ? "scale-150 ring-4 ring-yellow-500" : ""}`}
         >
           Open Settings
         </Link>
@@ -315,11 +427,63 @@ export default function PatientView() {
   }
 
   return (
-    <main className="h-screen w-screen bg-black overflow-hidden">
-      {/* Snap Scroll Container */}
+    <main
+      className={`h-screen w-screen bg-black overflow-hidden ${adaptationState.isSundowningMode ? "sundowning-mode" : ""}`}
+    >
+      {/* Voice Mode Overlay */}
+      {adaptationState.isVoiceMode && (
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-8 animate-in fade-in duration-300">
+          <h2 className="text-4xl font-bold text-white mb-4 animate-in slide-in-from-bottom-4 duration-500">
+            {isListening ? "Listening..." : "Tap Microphone to Speak"}
+          </h2>
+          <p className="text-xl text-gray-400 mb-8 text-center animate-in slide-in-from-bottom-5 duration-700">
+            {isListening
+              ? "Say your command"
+              : "Say 'Next', 'Like', or 'Recall'"}
+          </p>
+
+          {/* Interactive Mic Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const newState = !isListening;
+              setIsListening(newState);
+              if (newState) {
+                window.speechSynthesis.speak(
+                  new SpeechSynthesisUtterance("I'm listening"),
+                );
+              }
+            }}
+            className={`w-32 h-32 rounded-full flex items-center justify-center my-8 transition-all cursor-pointer z-50 relative border-4 ${isListening ? "bg-red-500 border-red-400 animate-pulse scale-110 shadow-lg shadow-red-500/50" : "bg-red-500/40 border-red-500 hover:bg-red-500/60 hover:scale-105 active:scale-95"}`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className={`w-20 h-20 pointer-events-none ${isListening ? "text-white" : "text-red-500"}`}
+              fill="currentColor"
+            >
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+            </svg>
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsListening(false);
+              resetVoiceMode();
+            }}
+            className="px-12 py-4 bg-gray-800 rounded-full text-white text-xl font-medium border-2 border-gray-500 hover:bg-gray-700 hover:border-gray-400 transition-colors z-50"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Main Container - Track Missed Taps */}
       <div
         ref={containerRef}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+        onClick={() => registerTap(false)}
+        className="h-[100dvh] w-full overflow-y-scroll snap-y snap-mandatory bg-black no-scrollbar"
         onScroll={handleScroll}
       >
         {memories.map((memory, index) => (
@@ -359,6 +523,7 @@ export default function PatientView() {
         href="/settings"
         className="absolute top-10 right-10 z-50 w-[60px] h-[60px] flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm border border-white/10 transition-all hover:bg-black/50"
         style={{ boxShadow: "0 0 20px rgba(149, 180, 139, 0.3)" }}
+        onClick={(e) => e.stopPropagation()}
       >
         <SettingsIcon className="w-8 h-8 text-[#95B48B]" />
       </Link>
@@ -367,42 +532,40 @@ export default function PatientView() {
       <div className="absolute right-10 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-8">
         {/* Like Button */}
         <button
-          onClick={toggleLike}
-          className="flex flex-col items-center gap-2 active:scale-90 transition-transform"
+          onClick={(e) => {
+            e.stopPropagation();
+            registerTap(true);
+            toggleLike(currentMemory.id);
+          }}
+          className={`p-4 rounded-full backdrop-blur-md transition-all duration-300 ${
+            likedMemories.has(currentMemory.id)
+              ? "bg-red-500/20 text-red-500 scale-110"
+              : "bg-black/30 text-white hover:bg-white/10"
+          } ${adaptationState.isVoiceMode ? "scale-150 ring-4 ring-red-500 mb-8" : "mb-6"}`}
         >
-          <div
-            className={`w-[64px] h-[64px] rounded-full flex items-center justify-center ${
-              isLiked ? "bg-red-500/20 animate-pulse-once" : "bg-black/30"
-            } backdrop-blur-sm border border-white/20 transition-all`}
-          >
-            <HeartIcon
-              filled={isLiked}
-              className={`w-9 h-9 ${isLiked ? "text-red-500" : "text-white"}`}
-            />
-          </div>
-          <span className="text-white text-xl font-bold drop-shadow-lg">
-            Like
-          </span>
+          <HeartIcon
+            filled={likedMemories.has(currentMemory.id)}
+            className="w-8 h-8"
+          />
         </button>
 
         {/* Recall Button */}
         <button
-          onClick={toggleRecall}
-          className="flex flex-col items-center gap-2 active:scale-90 transition-transform"
+          onClick={(e) => {
+            e.stopPropagation();
+            registerTap(true);
+            toggleRecall(currentMemory.id);
+          }}
+          className={`p-4 rounded-full backdrop-blur-md transition-all duration-300 ${
+            recalledMemories.has(currentMemory.id)
+              ? "bg-yellow-500/20 text-yellow-500 scale-110"
+              : "bg-black/30 text-white hover:bg-white/10"
+          } ${adaptationState.isVoiceMode ? "scale-150 ring-4 ring-yellow-500" : ""}`}
         >
-          <div
-            className={`w-[64px] h-[64px] rounded-full flex items-center justify-center ${
-              isRecalled ? "bg-amber-400/20 animate-pulse-once" : "bg-black/30"
-            } backdrop-blur-sm border border-white/20 transition-all`}
-          >
-            <StarIcon
-              filled={isRecalled}
-              className={`w-9 h-9 ${isRecalled ? "text-amber-400" : "text-white"}`}
-            />
-          </div>
-          <span className="text-white text-xl font-bold drop-shadow-lg">
-            Recall
-          </span>
+          <StarIcon
+            filled={recalledMemories.has(currentMemory.id)}
+            className="w-8 h-8"
+          />
         </button>
       </div>
 
@@ -443,7 +606,7 @@ export default function PatientView() {
       )}
 
       {/* Audio Element */}
-      <audio ref={audioRef} src={narrationAudio || ""} />
+      <audio ref={audioRef} src={narrationAudio || undefined} />
 
       {/* Hide scrollbar and custom animations */}
       <style jsx global>{`

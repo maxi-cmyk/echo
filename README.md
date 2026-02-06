@@ -1,112 +1,148 @@
 # Echo Adaptive
 
-A reminiscence therapy platform with adaptive accessibility for dementia patients.
+> **A reminiscence therapy platform with adaptive accessibility for dementia patients.**
 
-## Architecture
+Echo Adaptive is a digital companion that delivers personalized memories to patients with cognitive impairment. It uses AI-powered narration and an "Adaptation Engine" that dynamically adjusts the interface based on time of day, behavioral cues, and environmental factors.
 
-```
-echo-adaptive/
-├── apps/
-│   └── patient-pwa/      # Next.js PWA for patients (offline-first)
-├── supabase/
-│   ├── migrations/       # Database schema
-│   └── functions/        # Deno Edge Functions
-│       ├── memory-synthesis/   # GPT-4o image analysis
-│       ├── voice-synthesis/    # ElevenLabs TTS & cloning
-│       ├── novelty-engine/     # "Reverse TikTok" feed algorithm
-│       └── recall-scheduler/   # Spaced repetition logic
-└── shared/               # Shared TypeScript types
-```
+---
 
-## Prerequisites
+## ✨ Features
 
-- **Node.js** v18+
-- **npm** v9+
-- **Supabase CLI** (for edge functions)
-- **Deno** v1.40+ (for local edge function development)
+| Feature             | Description                                                              |
+| ------------------- | ------------------------------------------------------------------------ |
+| **Forever Feed**    | TikTok-style fullscreen memory viewer with vertical snap-scroll          |
+| **AI Narration**    | Automatic voiceover generation for each memory using GPT-4o + ElevenLabs |
+| **Voice Commands**  | Say "Next", "Like", or "Recall" to control the app hands-free            |
+| **Sundowning Mode** | Warm amber theme automatically activates after 6PM                       |
+| **Error Tolerance** | Detects missed taps and offers Voice Mode for accessibility              |
+| **PIN Protection**  | Caregiver settings are secured behind a numeric PIN                      |
 
-## Dependencies
+---
 
-### Patient PWA
+## 🛠 Tech Stack
 
-| Package                 | Purpose                    |
-| ----------------------- | -------------------------- |
-| `next`                  | React framework (PWA mode) |
-| `react` / `react-dom`   | UI library                 |
-| `@clerk/nextjs`         | Authentication             |
-| `@supabase/supabase-js` | Database client            |
-| `tailwindcss`           | Styling                    |
+- **Frontend**: Next.js 16 + React + Tailwind CSS
+- **Auth**: Clerk (passwordless)
+- **Database**: Supabase (PostgreSQL + Row-Level Security)
+- **AI**: OpenAI GPT-4o (vision), ElevenLabs (TTS)
 
-### Edge Functions (Deno)
+---
 
-| Import                       | Purpose                          |
-| ---------------------------- | -------------------------------- |
-| `jsr:@supabase/functions-js` | Supabase runtime types           |
-| OpenAI API                   | GPT-4o Vision for image analysis |
-| ElevenLabs API               | Voice cloning & text-to-speech   |
+## 🚀 Quick Start
 
-## Getting Started
+### Prerequisites
+
+- Node.js v18+
+- npm v9+
+- Supabase project (with anon key)
+- Clerk application (with publishable + secret keys)
+- OpenAI API key
+
+### 1. Clone & Install
 
 ```bash
-# 1. Clone and install dependencies
 git clone <repo-url>
-cd echo-adaptive
+cd intuition-Hack
 npm install
+```
 
-# 2. Set up environment variables
-cp .env.example .env
-# Fill in your API keys (see below)
+### 2. Configure Environment
 
-# 3. Run the app
+Create a `.env.local` file in `apps/patient-pwa/`:
+
+```env
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# AI
+OPENAI_API_KEY=sk-...
+ELEVENLABS_API_KEY=...
+```
+
+### 3. Set Up Database
+
+Apply the schema to your Supabase project:
+
+```bash
+# Option A: Via Supabase Dashboard
+# Copy contents of supabase/migrations/001_initial_schema.sql and run in SQL Editor
+
+# Option B: Via CLI
+supabase link --project-ref <your-ref>
+supabase db push
+```
+
+### 4. Run the App
+
+```bash
 npm run dev
 ```
 
-## Environment Variables
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Copy `.env.example` to `.env` and configure:
+---
 
-| Variable                            | Description                              |
-| ----------------------------------- | ---------------------------------------- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk public key                         |
-| `CLERK_SECRET_KEY`                  | Clerk secret key                         |
-| `NEXT_PUBLIC_SUPABASE_URL`          | Supabase project URL                     |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`     | Supabase anonymous key                   |
-| `OPENAI_API_KEY`                    | OpenAI API key (for GPT-4o)              |
-| `ELEVENLABS_API_KEY`                | ElevenLabs API key (for voice synthesis) |
+## 📱 Usage
 
-## Settings Access
+1. **Sign In** with Clerk (email OTP)
+2. **Access Settings** (⚙️ top-right) with PIN `1234` (default)
+3. **Upload Memories** (photos/videos) in Settings
+4. **Watch the Feed** – memories are narrated and displayed fullscreen
+5. **Use Voice Mode** – tap empty space 3+ times to activate, then speak commands
 
-Settings are protected by a PIN. Default PIN: `1234`
+---
 
-To access settings:
+## 🌙 Adaptive Modes
 
-1. Tap the ⚙️ icon in the top-right corner
-2. Enter your PIN
-3. You can change the PIN in the settings page
+| Mode           | Trigger        | Effect                                       |
+| -------------- | -------------- | -------------------------------------------- |
+| **Sundowning** | After 6:00 PM  | Warm amber colors, sepia-tinted media        |
+| **Voice Mode** | 3+ missed taps | Large mic button, speech recognition enabled |
 
-## Supabase Setup
+---
 
-```bash
-# Install Supabase CLI
-npm install -g supabase
+## 📁 Project Structure
 
-# Link to your project
-supabase link --project-ref <your-project-ref>
-
-# Run migrations
-supabase db push
-
-# Deploy edge functions
-supabase functions deploy memory-synthesis
-supabase functions deploy voice-synthesis
-supabase functions deploy novelty-engine
-supabase functions deploy recall-scheduler
+```
+intuition-Hack/
+├── apps/
+│   └── patient-pwa/        # Next.js PWA
+│       ├── src/app/        # Pages & API routes
+│       ├── src/hooks/      # useSupabase, useAdaptationEngine
+│       └── src/services/   # Video caching
+├── supabase/
+│   └── migrations/         # Database schema (RLS enabled)
+├── docs/                   # PRD, Architecture, Design
+└── README.md               # This file
 ```
 
-## Scripts
+---
 
-| Command         | Description          |
-| --------------- | -------------------- |
-| `npm run dev`   | Start patient PWA    |
-| `npm run build` | Build for production |
-| `npm run lint`  | Lint code            |
+## 📜 Scripts
+
+| Command         | Description              |
+| --------------- | ------------------------ |
+| `npm run dev`   | Start development server |
+| `npm run build` | Build for production     |
+| `npm run lint`  | Run ESLint               |
+
+---
+
+## 🔐 Security Notes
+
+- All data is protected by Supabase Row-Level Security (RLS)
+- Patients can only access their own memories
+- Settings are PIN-protected
+- Auth tokens are refreshed automatically via Clerk
+
+---
+
+## 📄 License
+
+MIT
