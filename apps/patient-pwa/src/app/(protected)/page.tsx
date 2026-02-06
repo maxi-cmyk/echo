@@ -163,26 +163,12 @@ export default function PatientView() {
         }
         window.speechSynthesis.speak(new SpeechSynthesisUtterance("Next"));
       } else if (transcript.includes("like")) {
-        const mem = memories[currentIndex];
-        if (mem) {
-          setLikedMemories((prev) => {
-            const newSet = new Set(prev);
-            if (newSet.has(mem.id)) newSet.delete(mem.id);
-            else newSet.add(mem.id);
-            return newSet;
-          });
-        }
+        // Call toggleLike to update UI and database
+        toggleLike();
         window.speechSynthesis.speak(new SpeechSynthesisUtterance("Liked"));
       } else if (transcript.includes("recall")) {
-        const mem = memories[currentIndex];
-        if (mem) {
-          setRecalledMemories((prev) => {
-            const newSet = new Set(prev);
-            if (newSet.has(mem.id)) newSet.delete(mem.id);
-            else newSet.add(mem.id);
-            return newSet;
-          });
-        }
+        // Call toggleRecall to update UI and database
+        toggleRecall();
         window.speechSynthesis.speak(new SpeechSynthesisUtterance("Recalled"));
       } else {
         window.speechSynthesis.speak(
@@ -723,28 +709,15 @@ export default function PatientView() {
       </div>
 
       {/* Action Buttons - Bottom Right, Vertical Stack */}
-      <div className="absolute bottom-10 right-6 z-50 flex flex-col items-center gap-6">
+      <div className={`absolute bottom-10 right-6 z-50 flex flex-col items-center gap-6 transition-all duration-300 ${adaptationState.isVoiceMode ? "scale-125" : ""}`}>
         {/* Like Button */}
         <button
-<<<<<<< HEAD
           onClick={(e) => {
             e.stopPropagation();
             registerTap(true);
-            toggleLike(currentMemory.id);
+            toggleLike();
           }}
-          className={`p-4 rounded-full backdrop-blur-md transition-all duration-300 ${
-            likedMemories.has(currentMemory.id)
-              ? "bg-red-500/20 text-red-500 scale-110"
-              : "bg-black/30 text-white hover:bg-white/10"
-          } ${adaptationState.isVoiceMode ? "scale-150 ring-4 ring-red-500 mb-8" : "mb-6"}`}
-        >
-          <HeartIcon
-            filled={likedMemories.has(currentMemory.id)}
-            className="w-8 h-8"
-          />
-=======
-          onClick={toggleLike}
-          className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+          className={`flex flex-col items-center gap-1 active:scale-90 transition-transform ${adaptationState.isVoiceMode ? "ring-4 ring-red-500 rounded-2xl p-2" : ""}`}
         >
           <div
             className={`w-[56px] h-[56px] rounded-full flex items-center justify-center ${isLiked ? "bg-red-500/30" : "bg-black/40"
@@ -758,30 +731,16 @@ export default function PatientView() {
           <span className="text-white text-sm font-semibold" style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.8)" }}>
             Like
           </span>
->>>>>>> 762b811 (Improved Ui and added recall logic)
         </button>
 
         {/* Recall Button */}
         <button
-<<<<<<< HEAD
           onClick={(e) => {
             e.stopPropagation();
             registerTap(true);
-            toggleRecall(currentMemory.id);
+            toggleRecall();
           }}
-          className={`p-4 rounded-full backdrop-blur-md transition-all duration-300 ${
-            recalledMemories.has(currentMemory.id)
-              ? "bg-yellow-500/20 text-yellow-500 scale-110"
-              : "bg-black/30 text-white hover:bg-white/10"
-          } ${adaptationState.isVoiceMode ? "scale-150 ring-4 ring-yellow-500" : ""}`}
-        >
-          <StarIcon
-            filled={recalledMemories.has(currentMemory.id)}
-            className="w-8 h-8"
-          />
-=======
-          onClick={toggleRecall}
-          className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+          className={`flex flex-col items-center gap-1 active:scale-90 transition-transform ${adaptationState.isVoiceMode ? "ring-4 ring-amber-400 rounded-2xl p-2" : ""}`}
         >
           <div
             className={`w-[56px] h-[56px] rounded-full flex items-center justify-center ${isRecalled ? "bg-amber-400/30" : "bg-black/40"
@@ -795,7 +754,6 @@ export default function PatientView() {
           <span className="text-white text-sm font-semibold" style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.8)" }}>
             Recall
           </span>
->>>>>>> 762b811 (Improved Ui and added recall logic)
         </button>
       </div>
 
@@ -825,14 +783,10 @@ export default function PatientView() {
       )}
 
       {/* Audio Element */}
-<<<<<<< HEAD
-      <audio ref={audioRef} src={narrationAudio || undefined} />
-=======
-      {narrationAudio && <audio ref={audioRef} src={narrationAudio} autoPlay />}
->>>>>>> 762b811 (Improved Ui and added recall logic)
+{narrationAudio && <audio ref={audioRef} src={narrationAudio} autoPlay />}
 
-      {/* Hide scrollbar and custom animations */}
-      <style jsx global>{`
+  {/* Hide scrollbar and custom animations */ }
+  <style jsx global>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
@@ -881,6 +835,6 @@ export default function PatientView() {
           animation: slide-up 0.4s ease-out;
         }
       `}</style>
-    </main>
+    </main >
   );
 }
