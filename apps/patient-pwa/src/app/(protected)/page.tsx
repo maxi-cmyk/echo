@@ -27,7 +27,8 @@ const HeartIcon = ({
   </svg>
 );
 
-const StarIcon = ({
+// Autorenew Icon (Google Material Design style for Recall)
+const AutorenewIcon = ({
   filled,
   className,
 }: {
@@ -39,11 +40,12 @@ const StarIcon = ({
     className={className}
     fill={filled ? "currentColor" : "none"}
     stroke="currentColor"
-    strokeWidth={filled ? 0 : 2.5}
+    strokeWidth={2}
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8z" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} />
+    <path d="M12 18c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} />
   </svg>
 );
 
@@ -91,6 +93,12 @@ export default function PatientView() {
   const [recalledMemories, setRecalledMemories] = useState<Set<string>>(
     new Set(),
   );
+  const [previouslyRecalledIds, setPreviouslyRecalledIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Recall Prompt State
+  const [showRecallPrompt, setShowRecallPrompt] = useState(false);
 
   // Narration State
   const [narrationScript, setNarrationScript] = useState<string | null>(null);
@@ -211,28 +219,69 @@ export default function PatientView() {
     ? recalledMemories.has(currentMemory.id)
     : false;
 
-  // Fetch Memories
+  // Store all available memory IDs for infinite scroll
+  const [allMemoryIds, setAllMemoryIds] = useState<string[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Shuffle array helper
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // Fetch initial memories (randomized)
   useEffect(() => {
     if (!isSignedIn) return;
 
     const fetchMemories = async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch ALL approved memory IDs first
+        const { data: allData, error: allError } = await supabase
           .from("memories")
-          .select("*, media_assets!inner(*)")
-          .eq("status", "approved")
-          .order("created_at", { ascending: false })
-          .limit(20);
+          .select("id, cooldown_until")
+          .eq("status", "approved");
 
-        if (error) throw error;
+        if (allError) throw allError;
 
-        const filtered = (data || []).filter((m: Memory) => {
-          const cooldown = (m as { cooldown_until?: string }).cooldown_until;
-          if (!cooldown) return true;
-          return new Date(cooldown) < new Date();
-        });
+        // Filter by cooldown and store IDs
+        const availableIds = (allData || [])
+          .filter((m: { id: string; cooldown_until?: string }) => {
+            if (!m.cooldown_until) return true;
+            return new Date(m.cooldown_until) < new Date();
+          })
+          .map((m: { id: string }) => m.id);
 
-        setMemories(filtered);
+        setAllMemoryIds(shuffleArray(availableIds));
+
+        // Fetch first batch of 10 random memories with full data
+        const initialIds = shuffleArray(availableIds).slice(0, 10);
+
+        if (initialIds.length > 0) {
+          const { data, error } = await supabase
+            .from("memories")
+            .select("*, media_assets!inner(*)")
+            .in("id", initialIds);
+
+          if (error) throw error;
+
+          // Shuffle the results again for display order
+          setMemories(shuffleArray(data || []));
+        }
+
+        // Fetch previously recalled memory IDs
+        const { data: recallData } = await supabase
+          .from("interactions")
+          .select("memory_id")
+          .eq("interaction_type", "recall");
+
+        if (recallData) {
+          const recalledIds = new Set(recallData.map((r: { memory_id: string }) => r.memory_id));
+          setPreviouslyRecalledIds(recalledIds);
+        }
       } catch (err) {
         console.error(
           "Fetch memories failed details:",
@@ -247,12 +296,46 @@ export default function PatientView() {
     fetchMemories();
   }, [isSignedIn]);
 
-  // Handle scroll snap
+  // Load more memories for infinite scroll
+  const loadMoreMemories = useCallback(async () => {
+    if (isLoadingMore || allMemoryIds.length === 0) return;
+
+    setIsLoadingMore(true);
+    try {
+      // Get IDs not currently in the feed
+      const currentIds = new Set(memories.map(m => m.id));
+      const availableIds = allMemoryIds.filter(id => !currentIds.has(id));
+
+      // If we've shown all, reshuffle and allow repeats
+      const idsToFetch = availableIds.length > 0
+        ? shuffleArray(availableIds).slice(0, 5)
+        : shuffleArray(allMemoryIds).slice(0, 5);
+
+      if (idsToFetch.length > 0) {
+        const { data, error } = await supabase
+          .from("memories")
+          .select("*, media_assets!inner(*)")
+          .in("id", idsToFetch);
+
+        if (error) throw error;
+
+        // Append shuffled new memories to the feed
+        setMemories(prev => [...prev, ...shuffleArray(data || [])]);
+      }
+    } catch (err) {
+      console.error("Failed to load more memories", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, allMemoryIds, memories, supabase]);
+
+  // Handle scroll snap + infinite scroll trigger
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
     const scrollTop = containerRef.current.scrollTop;
     const height = containerRef.current.clientHeight;
     const newIndex = Math.round(scrollTop / height);
+
     if (
       newIndex !== currentIndex &&
       newIndex >= 0 &&
@@ -260,7 +343,12 @@ export default function PatientView() {
     ) {
       setCurrentIndex(newIndex);
     }
-  }, [currentIndex, memories.length]);
+
+    // Trigger infinite scroll when 3 items from the end
+    if (newIndex >= memories.length - 3 && memories.length > 0) {
+      loadMoreMemories();
+    }
+  }, [currentIndex, memories.length, loadMoreMemories]);
 
   // Narration generation
   useEffect(() => {
@@ -337,11 +425,32 @@ export default function PatientView() {
     }
   }, [narrationAudio]);
 
-  // Toggle Like
+  // Detect if current memory was previously recalled -> show prompt
+  useEffect(() => {
+    if (!currentMemory) return;
+
+    // Check if this memory was previously recalled AND not recalled in this session
+    if (
+      previouslyRecalledIds.has(currentMemory.id) &&
+      !recalledMemories.has(currentMemory.id)
+    ) {
+      // Show the "Do you remember?" prompt with a slight delay
+      const timer = setTimeout(() => {
+        setShowRecallPrompt(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    } else {
+      setShowRecallPrompt(false);
+    }
+  }, [currentMemory, previouslyRecalledIds, recalledMemories]);
+
+  // Toggle Like - Sets cooldown to reduce frequency
   const toggleLike = async () => {
     if (!currentMemory) return;
     const newLiked = new Set(likedMemories);
-    if (newLiked.has(currentMemory.id)) {
+    const wasLiked = newLiked.has(currentMemory.id);
+
+    if (wasLiked) {
       newLiked.delete(currentMemory.id);
     } else {
       newLiked.add(currentMemory.id);
@@ -349,21 +458,35 @@ export default function PatientView() {
     setLikedMemories(newLiked);
 
     try {
+      // Update engagement count
       await supabase.rpc("increment_column", {
         table_name: "memories",
         column_name: "engagement_count",
         row_id: currentMemory.id,
       });
+
+      // Set cooldown (24 hours) when liked to reduce frequency
+      if (!wasLiked) {
+        const cooldownUntil = new Date();
+        cooldownUntil.setHours(cooldownUntil.getHours() + 24);
+
+        await supabase
+          .from("memories")
+          .update({ cooldown_until: cooldownUntil.toISOString() })
+          .eq("id", currentMemory.id);
+      }
     } catch (e) {
       console.error("Failed to update engagement", e);
     }
   };
 
-  // Toggle Recall
+  // Toggle Recall - Logs to interactions for future prompt
   const toggleRecall = async () => {
     if (!currentMemory) return;
     const newRecalled = new Set(recalledMemories);
-    if (newRecalled.has(currentMemory.id)) {
+    const wasRecalled = newRecalled.has(currentMemory.id);
+
+    if (wasRecalled) {
       newRecalled.delete(currentMemory.id);
     } else {
       newRecalled.add(currentMemory.id);
@@ -371,6 +494,18 @@ export default function PatientView() {
     setRecalledMemories(newRecalled);
 
     try {
+      // Log recall interaction (for future "Do you remember?" prompts)
+      if (!wasRecalled) {
+        await supabase.from("interactions").insert({
+          memory_id: currentMemory.id,
+          interaction_type: "recall",
+        });
+
+        // Add to previously recalled set
+        setPreviouslyRecalledIds(prev => new Set([...prev, currentMemory.id]));
+      }
+
+      // Update recall score
       await supabase.rpc("increment_column", {
         table_name: "memories",
         column_name: "recall_score",
@@ -378,6 +513,28 @@ export default function PatientView() {
       });
     } catch (e) {
       console.error("Failed to update recall", e);
+    }
+  };
+
+  // Handle "Yes, I remember" response
+  const handleRememberYes = () => {
+    setShowRecallPrompt(false);
+    // Just dismiss - they remembered!
+  };
+
+  // Handle "No, I don't remember" response - increase frequency
+  const handleRememberNo = async () => {
+    setShowRecallPrompt(false);
+    if (!currentMemory) return;
+
+    try {
+      // Clear cooldown to increase frequency
+      await supabase
+        .from("memories")
+        .update({ cooldown_until: null })
+        .eq("id", currentMemory.id);
+    } catch (e) {
+      console.error("Failed to clear cooldown", e);
     }
   };
 
@@ -496,9 +653,8 @@ export default function PatientView() {
               <img
                 src={memory.media_assets.public_url}
                 alt="Memory"
-                className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[12000ms] ease-linear ${
-                  index === currentIndex ? "scale-110" : "scale-100"
-                }`}
+                className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[12000ms] ease-linear ${index === currentIndex ? "scale-110" : "scale-100"
+                  }`}
                 draggable={false}
               />
             ) : (
@@ -521,17 +677,56 @@ export default function PatientView() {
       {/* Settings Gear - Top Right */}
       <Link
         href="/settings"
+<<<<<<< HEAD
         className="absolute top-10 right-10 z-50 w-[60px] h-[60px] flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm border border-white/10 transition-all hover:bg-black/50"
         style={{ boxShadow: "0 0 20px rgba(149, 180, 139, 0.3)" }}
         onClick={(e) => e.stopPropagation()}
+=======
+        className="absolute top-6 right-6 z-50 w-[48px] h-[48px] flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm border border-white/20 transition-all hover:bg-black/60"
+>>>>>>> 762b811 (Improved Ui and added recall logic)
       >
-        <SettingsIcon className="w-8 h-8 text-[#95B48B]" />
+        <SettingsIcon className="w-6 h-6 text-white" />
       </Link>
 
-      {/* Action Hub - Right Column */}
-      <div className="absolute right-10 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-8">
+      {/* Bottom Section Container */}
+      <div className="absolute bottom-0 left-0 right-0 z-50 p-6 pb-10">
+        {/* Caption - Above date row, left of icons */}
+        {narrationScript && (
+          <div className="mb-4 pr-28 animate-fade-in">
+            <p
+              className="text-white text-lg font-medium leading-relaxed"
+              style={{ textShadow: "1px 1px 4px rgba(0,0,0,0.8)" }}
+            >
+              {narrationScript}
+            </p>
+          </div>
+        )}
+
+        {/* Bottom Row: Date (left) and Location (right, before icons) */}
+        <div className="flex justify-between items-end pr-28">
+          {/* Date - Bottom Left */}
+          <p
+            className="text-white text-xl font-bold"
+            style={{ textShadow: "1px 1px 4px rgba(0,0,0,0.8)" }}
+          >
+            {currentMemory?.media_assets.metadata?.date || ""}
+          </p>
+
+          {/* Location - Bottom Right (left of icons) */}
+          <p
+            className="text-white text-xl font-bold text-right"
+            style={{ textShadow: "1px 1px 4px rgba(0,0,0,0.8)" }}
+          >
+            {currentMemory?.media_assets.metadata?.location || ""}
+          </p>
+        </div>
+      </div>
+
+      {/* Action Buttons - Bottom Right, Vertical Stack */}
+      <div className="absolute bottom-10 right-6 z-50 flex flex-col items-center gap-6">
         {/* Like Button */}
         <button
+<<<<<<< HEAD
           onClick={(e) => {
             e.stopPropagation();
             registerTap(true);
@@ -547,10 +742,28 @@ export default function PatientView() {
             filled={likedMemories.has(currentMemory.id)}
             className="w-8 h-8"
           />
+=======
+          onClick={toggleLike}
+          className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+        >
+          <div
+            className={`w-[56px] h-[56px] rounded-full flex items-center justify-center ${isLiked ? "bg-red-500/30" : "bg-black/40"
+              } backdrop-blur-sm border border-white/20 transition-all`}
+          >
+            <HeartIcon
+              filled={isLiked}
+              className={`w-7 h-7 ${isLiked ? "text-red-500" : "text-white"}`}
+            />
+          </div>
+          <span className="text-white text-sm font-semibold" style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.8)" }}>
+            Like
+          </span>
+>>>>>>> 762b811 (Improved Ui and added recall logic)
         </button>
 
         {/* Recall Button */}
         <button
+<<<<<<< HEAD
           onClick={(e) => {
             e.stopPropagation();
             registerTap(true);
@@ -566,47 +779,57 @@ export default function PatientView() {
             filled={recalledMemories.has(currentMemory.id)}
             className="w-8 h-8"
           />
+=======
+          onClick={toggleRecall}
+          className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+        >
+          <div
+            className={`w-[56px] h-[56px] rounded-full flex items-center justify-center ${isRecalled ? "bg-amber-400/30" : "bg-black/40"
+              } backdrop-blur-sm border border-white/20 transition-all`}
+          >
+            <AutorenewIcon
+              filled={isRecalled}
+              className={`w-7 h-7 ${isRecalled ? "text-amber-400" : "text-white"}`}
+            />
+          </div>
+          <span className="text-white text-sm font-semibold" style={{ textShadow: "1px 1px 2px rgba(0,0,0,0.8)" }}>
+            Recall
+          </span>
+>>>>>>> 762b811 (Improved Ui and added recall logic)
         </button>
       </div>
 
-      {/* Bottom Left - Date/Time */}
-      {currentMemory?.media_assets.metadata?.date && (
-        <div className="absolute bottom-[100px] left-10 z-50">
-          <p
-            className="text-white text-2xl font-bold"
-            style={{ textShadow: "2px 2px 8px rgba(0,0,0,0.8)" }}
-          >
-            {currentMemory.media_assets.metadata.date}
-          </p>
-        </div>
-      )}
-
-      {/* Bottom Right - Location */}
-      {currentMemory?.media_assets.metadata?.location && (
-        <div className="absolute bottom-[100px] right-10 z-50">
-          <p
-            className="text-white text-2xl font-bold text-right"
-            style={{ textShadow: "2px 2px 8px rgba(0,0,0,0.8)" }}
-          >
-            {currentMemory.media_assets.metadata.location}
-          </p>
-        </div>
-      )}
-
-      {/* Center Caption */}
-      {narrationScript && (
-        <div className="absolute bottom-[160px] left-10 right-10 z-50 animate-fade-in">
-          <p
-            className="text-white text-2xl font-medium text-center leading-relaxed"
-            style={{ textShadow: "2px 2px 8px rgba(0,0,0,0.8)" }}
-          >
-            {narrationScript}
-          </p>
+      {/* Recall Prompt - Non-intrusive, bottom 1/3 of screen */}
+      {showRecallPrompt && (
+        <div className="absolute bottom-0 left-0 right-0 z-[60] flex items-end justify-center pb-32 animate-slide-up">
+          <div className="bg-black/80 backdrop-blur-md rounded-2xl p-6 mx-6 border border-white/20 max-w-md">
+            <p className="text-white text-lg font-medium text-center mb-4">
+              Do you remember seeing this?
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={handleRememberYes}
+                className="px-6 py-3 rounded-full bg-green-500/80 text-white font-semibold text-base hover:bg-green-500 transition-colors"
+              >
+                Yes, I remember
+              </button>
+              <button
+                onClick={handleRememberNo}
+                className="px-6 py-3 rounded-full bg-gray-600/80 text-white font-semibold text-base hover:bg-gray-600 transition-colors"
+              >
+                No, I don&apos;t
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Audio Element */}
+<<<<<<< HEAD
       <audio ref={audioRef} src={narrationAudio || undefined} />
+=======
+      {narrationAudio && <audio ref={audioRef} src={narrationAudio} autoPlay />}
+>>>>>>> 762b811 (Improved Ui and added recall logic)
 
       {/* Hide scrollbar and custom animations */}
       <style jsx global>{`
@@ -643,6 +866,19 @@ export default function PatientView() {
         }
         .animate-pulse-once {
           animation: pulse-once 0.3s ease-out;
+        }
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(100px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.4s ease-out;
         }
       `}</style>
     </main>
