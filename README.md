@@ -14,6 +14,8 @@ Echo Adaptive is a digital companion that delivers personalized memories to pati
 | **AI Narration**    | Automatic voiceover generation for each memory using GPT-4o + ElevenLabs |
 | **Voice Commands**  | Say "Next", "Like", or "Recall" to control the app hands-free            |
 | **Sundowning Mode** | Warm amber theme automatically activates after 6PM                       |
+| **Active Recall**   | Spaced repetition prompts ("Do you remember this?") to test memory       |
+| **Infinite Stream** | Smart shuffling and infinite scrolling of approved memories              |
 | **Error Tolerance** | Detects missed taps and offers Voice Mode for accessibility              |
 | **PIN Protection**  | Caregiver settings are secured behind a numeric PIN                      |
 
@@ -114,8 +116,8 @@ intuition-Hack/
 ├── apps/
 │   └── patient-pwa/        # Next.js PWA
 │       ├── src/app/        # Pages & API routes
+
 │       ├── src/hooks/      # useSupabase, useAdaptationEngine
-│       └── src/services/   # Video caching
 ├── supabase/
 │   └── migrations/         # Database schema (RLS enabled)
 ├── docs/                   # PRD, Architecture, Design
