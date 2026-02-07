@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
   try {
     const { fileUrl, mediaType } = await req.json();
+
+    const openai = process.env.OPENAI_API_KEY
+      ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      : null;
+
+    if (!openai) {
+      console.warn("OpenAI API key missing, skipping analysis");
+      return NextResponse.json({
+        summary: "AI Analysis unavailable (Missing API Key)",
+        people: "Unknown",
+        date: "Unknown",
+      });
+    }
 
     if (!fileUrl) {
       return NextResponse.json({ error: "Missing fileUrl" }, { status: 400 });
