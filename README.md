@@ -1,6 +1,12 @@
-# Echo Adaptive
+# Echo Adaptive: Tiktok, but for Dementia
 
 > **A reminiscence therapy platform with adaptive accessibility for dementia patients.**
+
+<p align="center">
+  <img width="200" src="https://github.com/user-attachments/assets/8eaab12e-8eb0-4cfa-81eb-7039a7628929" />
+  <img width="200" src="https://github.com/user-attachments/assets/9f4981b7-c771-43a7-b6f7-04dc972f0ed1" />
+  <img width="200" src="https://github.com/user-attachments/assets/f5bd56b8-b924-4ba5-b620-e09798c26092" />
+</p>
 
 Echo Adaptive is a digital companion that delivers personalized memories to patients with cognitive impairment. It uses AI-powered narration and an "Adaptation Engine" that dynamically adjusts the interface based on time of day, behavioral cues, and environmental factors.
 
@@ -14,8 +20,6 @@ Echo Adaptive is a digital companion that delivers personalized memories to pati
 | **AI Narration**    | Automatic voiceover generation for each memory using GPT-4o + ElevenLabs |
 | **Voice Commands**  | Say "Next", "Like", or "Recall" to control the app hands-free            |
 | **Sundowning Mode** | Warm amber theme automatically activates after 6PM                       |
-| **Active Recall**   | Spaced repetition prompts ("Do you remember this?") to test memory       |
-| **Infinite Stream** | Smart shuffling and infinite scrolling of approved memories              |
 | **Error Tolerance** | Detects missed taps and offers Voice Mode for accessibility              |
 | **PIN Protection**  | Caregiver settings are secured behind a numeric PIN                      |
 
@@ -116,8 +120,8 @@ intuition-Hack/
 ├── apps/
 │   └── patient-pwa/        # Next.js PWA
 │       ├── src/app/        # Pages & API routes
-
 │       ├── src/hooks/      # useSupabase, useAdaptationEngine
+│       └── src/services/   # Video caching
 ├── supabase/
 │   └── migrations/         # Database schema (RLS enabled)
 ├── docs/                   # PRD, Architecture, Design
@@ -148,3 +152,7 @@ intuition-Hack/
 ## 📄 License
 
 MIT
+
+
+
+
