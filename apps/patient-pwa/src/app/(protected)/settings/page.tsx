@@ -686,11 +686,10 @@ export default function SettingsPage() {
         .single();
 
       if (memory) {
-        // It is a memory
-        if (memory.media_assets?.storage_path) {
-          await supabase.storage
-            .from("media-assets")
-            .remove([memory.media_assets.storage_path]);
+        // It is a memory - media_assets is an array from the join
+        const storagePath = (memory.media_assets as any)?.[0]?.storage_path;
+        if (storagePath) {
+          await supabase.storage.from("media-assets").remove([storagePath]);
         }
         const { error } = await supabase.from("memories").delete().eq("id", id);
         if (error) throw error;
