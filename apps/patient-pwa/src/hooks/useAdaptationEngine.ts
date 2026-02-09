@@ -44,18 +44,18 @@ export function useAdaptationEngine({
 
       const isSundowning = now >= sundownStart;
 
-      console.log("Sundown Check:", {
-        currentTime: now.toLocaleTimeString(),
-        sundownTime: sundowningTime,
-        isSundowning,
-        currentSundowningMode: state.isSundowningMode,
-      });
+      // console.log("Sundown Check:", {
+      //   currentTime: now.toLocaleTimeString(),
+      //   sundownTime: sundowningTime,
+      //   isSundowning,
+      //   currentSundowningMode: state.isSundowningMode,
+      // });
 
       if (isSundowning !== state.isSundowningMode) {
         const newState = { ...state, isSundowningMode: isSundowning };
         setState(newState);
         onModeChange(newState);
-        console.log("Sundown mode changed to:", isSundowning);
+        // console.log("Sundown mode changed to:", isSundowning);
       }
     };
 

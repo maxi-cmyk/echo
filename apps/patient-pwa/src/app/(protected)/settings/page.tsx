@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SignOutButton, useUser } from "@clerk/nextjs";
 
-import { HistorySection } from "../../../components/HistorySection";
+import { HistorySection } from "../components/HistorySection";
 
 const DEFAULT_PIN = "1234";
 const PIN_STORAGE_KEY = "echo_settings_pin";
@@ -78,7 +78,6 @@ export default function SettingsPage() {
   const [editPeople, setEditPeople] = useState("");
 
   const [historyItems, setHistoryItems] = useState<QueueItem[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const [fixationCooldown, setFixationCooldown] = useState(24);
   const [noveltyWeight, setNoveltyWeight] = useState(50);
@@ -523,7 +522,7 @@ export default function SettingsPage() {
 
         if (isImage) {
           try {
-            const response = await fetch("/api/analyze-media", {
+            const response = await fetch("/api/media-analyze", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -614,7 +613,6 @@ export default function SettingsPage() {
   };
 
   const fetchHistory = async () => {
-    setIsLoadingHistory(true);
     try {
       const { data: assets, error } = await supabase
         .from("media_assets")
@@ -666,8 +664,6 @@ export default function SettingsPage() {
       setHistoryItems(items);
     } catch (e) {
       console.error("Failed to fetch history", e);
-    } finally {
-      setIsLoadingHistory(false);
     }
   };
 

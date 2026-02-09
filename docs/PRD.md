@@ -2,32 +2,178 @@
 
 ## 1. Overview
 
-Echo Adaptive is a reminiscence therapy platform for dementia patients. It uses AI to narrate personal memories and adapts its interface to the user's cognitive state.
+**Echo Adaptive** is a reminiscence therapy platform designed for dementia patients. It delivers personalized memories through an intuitive, TikTok-style interface with AI-powered narration and adaptive accessibility features.
 
-## 2. Core Features (MVP)
+---
 
-- **Forever Feed**: TikTok-style vertical scroll of memories.
-- **AI Narration**:
-  - **Vision**: Analyzes photos using **Local Ollama (Llava)** to generate context.
-  - **Voice**: Reads narration using **ElevenLabs** (with Voice Cloning support).
-- **Voice Mode**: Hands-free control ("Next", "Like", "Recall") via Web Speech API.
-- **Sundowning Mode**: Auto-activates warm amber theme after 6 PM.
-- **Engagement Tracking**: Likes and Recalls are logged to adapt content.
+## 2. Core Features
 
-## 3. Architecture
+### 2.1 Forever Feed (Patient View)
 
-- **Frontend**: Next.js (PWA)
-- **Backend**: Supabase (Auth, DB, Storage)
-- **AI Provider**:
-  - **Local**: Ollama (Llava) exposed via Ngrok for analysis.
-  - **Cloud**: ElevenLabs for high-quality TTS.
+- **Fullscreen Memory Display**: Photos displayed in a vertical snap-scroll feed
+- **AI Narration**: Each memory plays with personalized voiceover
+- **Interaction Buttons**:
+  - ❤️ **Like**: Acknowledges a memory, applies 24-hour cooldown to prevent repetition
+  - 🔄 **Recall**: Marks memory as significant for future "Do you remember?" prompts
+- **Infinite Scroll**: Memories shuffle and repeat when all have been shown
 
-## 4. Security
+### 2.2 AI Integration
 
-- **RLS**: Row-Level Security ensures data isolation.
-- **PIN**: Settings protected by 4-digit PIN.
+| Component         | Technology     | Purpose                                               |
+| ----------------- | -------------- | ----------------------------------------------------- |
+| Vision Analysis   | Ollama (Llava) | Extract metadata (people, location, date) from photos |
+| Script Generation | Ollama (Llava) | Create warm, simple narration scripts                 |
+| Text-to-Speech    | ElevenLabs     | Generate voiceover audio (eleven_multilingual_v2)     |
+| Voice Cloning     | ElevenLabs     | Clone familiar voices for personalized narration      |
 
-## 5. Deployment
+### 2.3 Adaptive Modes
 
-- **Vercel**: hosting the PWA.
-- **Ngrok**: tunneling local AI to the cloud.
+#### Sundowning Mode
+
+- **Trigger**: Activates after 6:00 PM (configurable)
+- **Effects**:
+  - Warm amber color palette
+  - Sepia filter on images/videos
+  - Reduced visual stimulation
+
+#### Voice Mode
+
+- **Trigger**: 3+ missed taps detected
+- **Effects**:
+  - Large microphone button appears
+  - Voice commands enabled: "Next", "Like", "Recall"
+  - Uses Web Speech API for recognition
+
+### 2.4 Caregiver Settings (PIN Protected)
+
+- **Media Management**:
+  - Upload photos/videos via drag-drop or file picker
+  - AI auto-analyzes uploaded media
+  - Edit metadata (description, date, location, people)
+  - Greenlight/Reject memories for patient feed
+  - View and manage upload history
+- **Neural Proxy (Voice Cloning)**:
+  - Record 1-minute voice sample
+  - Clone voice for personalized narration
+  - Set active narrator voice
+  - Manage cloned voices
+- **Account Settings**:
+  - Change PIN (default: 1234)
+  - Sign out
+
+---
+
+## 3. API Routes
+
+| Endpoint                 | Method | Purpose                                        |
+| ------------------------ | ------ | ---------------------------------------------- |
+| `/api/media-analyze`     | POST   | Analyze image with Ollama, extract metadata    |
+| `/api/narrator-generate` | POST   | Generate narration script + audio for a memory |
+| `/api/voice-clone`       | POST   | Clone a voice from audio sample (ElevenLabs)   |
+| `/api/voice-delete`      | DELETE | Delete a cloned voice                          |
+| `/api/voice-preview`     | POST   | Preview TTS with specified voice               |
+
+---
+
+## 4. Data Model
+
+### Tables (Supabase)
+
+#### `media_assets`
+
+- `id`, `user_id`, `storage_path`, `public_url`
+- `type` (image/video)
+- `metadata` (JSON: summary, people, location, date)
+- `created_at`
+
+#### `memories`
+
+- `id`, `user_id`, `media_asset_id`
+- `script` (AI-generated narration text)
+- `audio_url` (generated TTS audio)
+- `status` (needs_review, approved, rejected)
+- `engagement_score`, `recall_count`
+- `cooldown_until` (24hr cooldown after Like)
+- `created_at`
+
+#### `voices`
+
+- `id`, `user_id`, `voice_id` (ElevenLabs ID)
+- `name`, `is_active`
+- `created_at`
+
+---
+
+## 5. Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Patient Device                        │
+│                   (Next.js PWA)                          │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+        ┌─────────────┴─────────────┐
+        ▼                           ▼
+┌───────────────┐           ┌───────────────┐
+│   Supabase    │           │  API Routes   │
+│  (Auth, DB,   │           │  (Next.js)    │
+│   Storage)    │           └───────┬───────┘
+└───────────────┘                   │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+            ┌───────────────┐               ┌───────────────┐
+            │ Ollama (Local)│               │  ElevenLabs   │
+            │ via ngrok     │               │  (Cloud TTS)  │
+            │ - Llava model │               │ - TTS         │
+            │ - Analysis    │               │ - Cloning     │
+            └───────────────┘               └───────────────┘
+```
+
+---
+
+## 6. Security
+
+| Layer           | Implementation                       |
+| --------------- | ------------------------------------ |
+| Authentication  | Clerk (passwordless email)           |
+| Authorization   | Supabase RLS (Row-Level Security)    |
+| Settings Access | 4-digit PIN protection               |
+| Data Isolation  | Users can only access their own data |
+
+---
+
+## 7. Deployment
+
+| Component          | Platform                    |
+| ------------------ | --------------------------- |
+| PWA Frontend       | Vercel                      |
+| Database & Storage | Supabase                    |
+| Local AI (Ollama)  | Developer machine via ngrok |
+| Voice Services     | ElevenLabs Cloud            |
+
+### Environment Variables Required
+
+```env
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# AI
+ELEVENLABS_API_KEY=
+OLLAMA_BASE_URL=         # ngrok URL
+OLLAMA_VISION_MODEL=llava
+```
+
+---
+
+## 8. Future Enhancements
+
+- [ ] Video memory support with generated animations
+- [ ] Active Recall prompts ("Do you remember this?")
+- [ ] Multi-patient support per caregiver
+- [ ] Offline mode with service worker caching
+- [ ] Analytics dashboard for engagement tracking

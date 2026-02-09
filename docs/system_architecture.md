@@ -2,78 +2,112 @@
 
 ## 1. High-Level Overview
 
-Echo Adaptive is a Progressive Web App (PWA) built on a modern serverless stack. It leverages Edge caching for media and tailored AI services for content generation.
+Echo Adaptive is a Progressive Web App (PWA) built on a modern serverless stack. It uses local AI for vision analysis and cloud services for voice synthesis.
 
 ## 2. Technology Stack
 
-- **Frontend**: Next.js 16 (App Router), React, TailwindCSS.
-- **Database**: Supabase (PostgreSQL) with `pgvector` (future proofing).
-- **Auth**: Clerk (Identity Management).
-- **Storage**: Supabase Storage (S3-compatible).
-- **AI Services**:
-  - **Vision**: OpenAI GPT-4o (Image analysis).
-  - **Voice**: ElevenLabs (Narration synthesis).
-- **Deployment**: Vercel.
+| Layer      | Technology                          |
+| ---------- | ----------------------------------- |
+| Frontend   | Next.js 16 (App Router), React, CSS |
+| Database   | Supabase (PostgreSQL)               |
+| Auth       | Clerk (Passwordless)                |
+| Storage    | Supabase Storage                    |
+| Vision AI  | Ollama (Llava) via ngrok            |
+| Voice AI   | ElevenLabs (TTS + Cloning)          |
+| Deployment | Vercel                              |
 
 ## 3. Data Flow
 
 ### 3.1. Media Ingestion Pipeline
 
-1.  **Upload**: User uploads file via `SettingsPage`.
-2.  **Storage**: File saved to Supabase Storage bucket `media-assets`.
-3.  **Optimization**: `publicUrl` generated.
-4.  **Analysis**:
-    - Trigger: Client calls `/api/analyze-media`.
-    - Process: OpenAI analyzes image -> Returns JSON (Summary, People, Date).
-    - Fallback: Default metadata if AI fails.
-5.  **Persistence**:
-    - Insert into `media_assets` table.
-    - Insert into `memories` table (linked record).
-
-### 3.2. Feed Delivery
-
-1.  **Auth**: Client authenticates via Clerk -> Token passed to Supabase Client.
-2.  **Query**: `PatientView` fetches `memories` (Status = 'approved').
-3.  **RLS**: Database filters rows where `patient_id` matches authenticated user.
-4.  **Ranking** (Planned): Recency + Algorithm Scores.
-
-## 4. Database Schema (Simplified)
-
-```mermaid
-erDiagram
-    PATIENTS ||--o{ MEDIA_ASSETS : owns
-    PATIENTS ||--o{ MEMORIES : has
-    PATIENTS ||--o{ PATIENT_SETTINGS : configures
-    MEDIA_ASSETS ||--o| MEMORIES : generates
-
-    PATIENTS {
-        uuid id
-        string clerk_id
-        string display_name
-    }
-
-    MEDIA_ASSETS {
-        uuid id
-        string storage_path
-        string type
-        jsonb metadata
-    }
-
-    MEMORIES {
-        uuid id
-        string script
-        int engagement_count
-        timestamp cooldown_until
-    }
-
-    PATIENT_SETTINGS {
-        int novelty_weight
-        time sundowning_time
-    }
+```
+User Upload → Supabase Storage → /api/media-analyze → Ollama (Llava)
+                                        ↓
+                              Extract: summary, people, location, date
+                                        ↓
+                              Insert: media_assets + memories tables
 ```
 
-## 5. Security Architecture
+1. **Upload**: User uploads file via Settings → Media Management
+2. **Storage**: File saved to Supabase Storage bucket `media-assets`
+3. **Analysis**: `/api/media-analyze` sends image to Ollama (Llava)
+4. **Metadata**: AI extracts summary, people, location, date
+5. **Persistence**: Records created in `media_assets` and `memories` tables
+6. **Review**: Memory starts with status `needs_review`
 
-- **Authentication**: Clerk handles sessions. JWT Templates used to authenticate with Supabase.
-- **Authorization**: Supabase Row-Level Security (RLS) policies enforce data isolation per `patient_id`.
-- **Encryption**: Data at rest (Supabase), Data in transition (TLS 1.3).
+### 3.2. Narration Generation
+
+```
+Memory Display → Check audio_url → /api/narrator-generate
+                                          ↓
+                              Ollama: Generate script (10 words max)
+                                          ↓
+                              ElevenLabs: Generate audio
+                                          ↓
+                              Update: memory.script + memory.audio_url
+```
+
+### 3.3. Feed Delivery
+
+1. **Auth**: Client authenticates via Clerk
+2. **Query**: PatientView fetches memories where `status = 'approved'`
+3. **Filter**: Exclude memories with active cooldown (`cooldown_until > now`)
+4. **Shuffle**: Randomize order for variety
+5. **Play**: Display with narration audio
+
+## 4. API Routes
+
+| Route                    | Method | Purpose                                       |
+| ------------------------ | ------ | --------------------------------------------- |
+| `/api/media-analyze`     | POST   | Analyze image → extract metadata (Ollama)     |
+| `/api/narrator-generate` | POST   | Generate script + audio (Ollama + ElevenLabs) |
+| `/api/voice-clone`       | POST   | Clone voice from audio sample                 |
+| `/api/voice-delete`      | DELETE | Remove cloned voice                           |
+| `/api/voice-preview`     | POST   | Preview TTS with specific voice               |
+
+## 5. Database Schema
+
+```
+┌─────────────────┐       ┌─────────────────┐
+│  media_assets   │       │    memories     │
+├─────────────────┤       ├─────────────────┤
+│ id              │──────<│ media_asset_id  │
+│ user_id         │       │ id              │
+│ storage_path    │       │ user_id         │
+│ public_url      │       │ script          │
+│ type            │       │ audio_url       │
+│ metadata (JSON) │       │ status          │
+│ created_at      │       │ engagement_score│
+└─────────────────┘       │ recall_count    │
+                          │ cooldown_until  │
+┌─────────────────┐       │ created_at      │
+│     voices      │       └─────────────────┘
+├─────────────────┤
+│ id              │
+│ user_id         │
+│ voice_id        │  (ElevenLabs ID)
+│ name            │
+│ is_active       │
+│ created_at      │
+└─────────────────┘
+```
+
+## 6. Security Architecture
+
+| Layer           | Implementation                  |
+| --------------- | ------------------------------- |
+| Authentication  | Clerk (passwordless email, JWT) |
+| Authorization   | Supabase RLS per `user_id`      |
+| Settings Access | 4-digit PIN protection          |
+| Data at Rest    | Supabase encryption             |
+| Data in Transit | TLS 1.3                         |
+
+## 7. External Service Dependencies
+
+| Service        | Purpose         | Failure Mode            |
+| -------------- | --------------- | ----------------------- |
+| Ollama (local) | Vision analysis | Fallback metadata       |
+| ElevenLabs     | TTS generation  | No audio (caption only) |
+| Supabase       | DB + Storage    | App non-functional      |
+| Clerk          | Auth            | Cannot sign in          |
+| ngrok          | Expose Ollama   | Analysis unavailable    |

@@ -119,11 +119,11 @@ export default function PatientView() {
     state: adaptationState,
     registerTap,
     resetVoiceMode,
-    activateVoiceMode,
+    // activateVoiceMode - available for future use
   } = useAdaptationEngine({
     sundowningTime: "18:00",
     tapSensitivity: "medium",
-    onModeChange: (s) => {},
+    onModeChange: () => {},
   });
 
   // TTS for Voice Mode
@@ -404,11 +404,11 @@ export default function PatientView() {
 
     const generate = async () => {
       const voiceId = localStorage.getItem("active_voice_id") || "default";
-      let script = currentMemory.script || "";
+      const script = currentMemory.script || "";
 
       if (!script) {
         try {
-          const response = await fetch("/api/generate-narrator", {
+          const response = await fetch("/api/narrator-generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

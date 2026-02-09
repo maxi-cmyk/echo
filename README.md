@@ -208,14 +208,44 @@ If deploying to Vercel, update the env var in the Vercel dashboard:
 ```
 intuition-Hack/
 ├── apps/
-│   └── patient-pwa/        # Next.js PWA
-│       ├── src/app/        # Pages & API routes
-│       ├── src/hooks/      # useSupabase, useAdaptationEngine
-│       └── src/services/   # Video caching
+│   └── patient-pwa/                    # Next.js PWA
+│       ├── public/                     # Static assets
+│       │   ├── icon-192.png            # PWA icon (small)
+│       │   ├── icon-512.png            # PWA icon (large)
+│       │   ├── logo.png                # Echo logo
+│       │   └── manifest.json           # PWA manifest
+│       └── src/
+│           ├── app/
+│           │   ├── (protected)/        # Auth-required pages
+│           │   │   ├── components/     # Shared UI components
+│           │   │   │   └── HistorySection.tsx
+│           │   │   ├── settings/       # Caregiver settings page
+│           │   │   ├── layout.tsx      # Protected layout (auth check)
+│           │   │   └── page.tsx        # Patient memory feed
+│           │   ├── api/                # API routes
+│           │   │   ├── media-analyze/  # Image analysis (Ollama)
+│           │   │   ├── narrator-generate/ # Narration + TTS
+│           │   │   ├── voice-clone/    # Voice cloning (ElevenLabs)
+│           │   │   ├── voice-delete/   # Delete cloned voice
+│           │   │   └── voice-preview/  # TTS preview
+│           │   ├── sign-in/            # Clerk auth pages
+│           │   ├── sign-up/
+│           │   ├── globals.css         # Design system + themes
+│           │   └── layout.tsx          # Root layout
+│           ├── hooks/                  # Custom React hooks
+│           │   ├── useAdaptationEngine.ts  # Sundowning + Voice mode
+│           │   └── useSupabase.ts      # Supabase client
+│           ├── lib/                    # Utility libraries
+│           │   ├── ollama.ts           # Ollama API client
+│           │   └── supabase.ts         # Supabase config
+│           └── types/                  # TypeScript definitions
+│               └── index.ts
 ├── supabase/
-│   └── migrations/         # Database schema (RLS enabled)
-├── docs/                   # PRD, Architecture, Design
-└── README.md               # This file
+│   └── migrations/                     # Database schema (RLS enabled)
+├── scripts/
+│   └── expose-ollama.sh                # ngrok tunnel for Ollama
+├── docs/                               # PRD, Architecture, Design
+└── README.md
 ```
 
 ---

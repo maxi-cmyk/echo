@@ -20,12 +20,12 @@ export async function POST(req: Request) {
     const targetVoiceId =
       !voiceId || voiceId === "default" ? "21m00Tcm4TlvDq8ikWAM" : voiceId;
 
-    console.log(
-      "Voice Preview: Using voiceId:",
-      targetVoiceId,
-      "for text:",
-      text.substring(0, 50),
-    );
+    // console.log(
+    //   "Voice Preview: Using voiceId:",
+    //   targetVoiceId,
+    //   "for text:",
+    //   text.substring(0, 50),
+    // );
 
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${targetVoiceId}`,

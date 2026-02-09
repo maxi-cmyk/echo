@@ -1,4 +1,4 @@
-import { QueueItem } from "../types";
+import { QueueItem } from "../../../types";
 
 export const HistorySection = ({
   items,

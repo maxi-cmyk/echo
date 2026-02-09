@@ -18,12 +18,12 @@ export async function POST(req: Request) {
       process.env.OLLAMA_VISION_MODEL || "llava",
     );
 
-    console.log("Generating narration with Ollama...");
+    // console.log("Generating narration with Ollama...");
     const prompt =
       "Write a very short, warm, reminiscent narration (max 10 words) for this photo, addressing the viewer as 'you'. It should sound like a gentle familiar memory. make it descriptive and also simple as the person is very confused. You are a kind parent explaining a picture to a child very simply. Output ONLY the narration text.";
 
     const script = await ollama.generate(prompt, base64Image);
-    console.log("Ollama Script:", script);
+    // console.log("Ollama Script:", script);
 
     // 3. Generate Audio using ElevenLabs
     const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
