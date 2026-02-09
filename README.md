@@ -106,14 +106,65 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 📱 Usage
 
-### 1. **Setup AI Tunnel**
+### 1. **Setup Local AI (Ollama + Llava)**
 
-Before using the app, ensure your local AI is reachable:
+This app uses **Llava** (a vision-language model) running locally via **Ollama** for image analysis. To make it accessible from deployed apps or mobile devices, we expose it via **ngrok**.
+
+#### Step 1: Install Ollama
+
+```bash
+# macOS
+brew install ollama
+
+# Or download from https://ollama.ai
+```
+
+#### Step 2: Download the Llava Model
+
+```bash
+ollama pull llava
+```
+
+#### Step 3: Start Ollama Server
+
+```bash
+ollama serve
+# Keep this terminal running
+```
+
+#### Step 4: Install and Configure ngrok
+
+```bash
+# Install ngrok
+brew install ngrok/ngrok/ngrok
+
+# Authenticate (get token from https://dashboard.ngrok.com)
+ngrok config add-authtoken <your-token>
+```
+
+#### Step 5: Expose Ollama via ngrok
 
 ```bash
 ./scripts/expose-ollama.sh
-# Copy the URL -> Vercel Env Var: OLLAMA_BASE_URL
 ```
+
+This will output a URL like `https://abc123.ngrok.io`
+
+#### Step 6: Update Environment Variable
+
+> ⚠️ **IMPORTANT**: The ngrok URL changes every time you restart it (unless you have a paid plan with static domains).
+
+Update your `.env.local` or Vercel environment:
+
+```env
+OLLAMA_BASE_URL=https://abc123.ngrok.io
+```
+
+If deploying to Vercel, update the env var in the Vercel dashboard:
+
+1. Go to your project → Settings → Environment Variables
+2. Update `OLLAMA_BASE_URL` with the new ngrok URL
+3. Redeploy the app
 
 ### 2. **Get Started**
 
