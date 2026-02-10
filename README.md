@@ -17,7 +17,7 @@ Echo Adaptive is a digital companion that delivers personalized memories to pati
 | Feature             | Description                                                              |
 | ------------------- | ------------------------------------------------------------------------ |
 | **Forever Feed**    | TikTok-style fullscreen memory viewer with vertical snap-scroll          |
-| **AI Narration**    | Automatic voiceover generation for each memory using GPT-4o + ElevenLabs |
+| **AI Narration**    | Automatic voiceover generation for each memory using llava + ElevenLabs |
 | **Voice Commands**  | Say "Next", "Like", or "Recall" to control the app hands-free            |
 | **Sundowning Mode** | Warm amber theme automatically activates after 6PM                       |
 | **Error Tolerance** | Detects missed taps and offers Voice Mode for accessibility              |
@@ -272,3 +272,4 @@ intuition-Hack/
 ## 📄 License
 
 MIT
+
